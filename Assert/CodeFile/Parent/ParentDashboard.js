@@ -1,395 +1,324 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
     View,
     Text,
     TouchableOpacity,
     StyleSheet,
-    SafeAreaView,
     StatusBar,
     Animated,
-    Image,
     Platform,
+    ActivityIndicator,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { Dropdown } from 'react-native-element-dropdown';
 
-// ─── Bottom Tab Bar ───────────────────────────────────────────────────────────
+import { getParentChildren } from '../../services/api';
+
+// ─── Bottom Tabs ─────────────────────────────
 const TAB_ITEMS = [
     { key: 'home', label: 'HOME', icon: '⌂' },
     { key: 'diary', label: 'DIARY', icon: '📓' },
-    { key: 'complaints', label: 'COMPLAINTS', icon: '⚠' },
-    { key: 'profile', label: 'PROFILE', icon: '👤' },
+    { key: 'complaints', label: '⚠ COMPLAINTS', icon: '⚠' },
+    { key: 'profile', label: '👤 PROFILE', icon: '👤' },
 ];
 
-const BottomTabBar = ({ activeTab, onTabPress }) => (
-    <View style={styles.tabBar}>
-        {TAB_ITEMS.map((tab) => {
-            const isActive = activeTab === tab.key;
-            return (
-                <TouchableOpacity
-                    key={tab.key}
-                    style={styles.tabItem}
-                    onPress={() => onTabPress(tab.key)}
-                    activeOpacity={0.7}
-                >
-                    <Text style={[styles.tabIcon, isActive && styles.tabIconActive]}>
-                        {tab.icon}
-                    </Text>
-                    <Text style={[styles.tabLabel, isActive && styles.tabLabelActive]}>
-                        {tab.label}
-                    </Text>
-                </TouchableOpacity>
-            );
-        })}
-    </View>
-);
+// ─── Main Screen ─────────────────────────────
+const ParentDashboard = ({ navigation, route }) => {
 
-// ─── Card: View Diary ─────────────────────────────────────────────────────────
-const DiaryCard = ({ onPress, animValue }) => (
-    <Animated.View
-        style={[
-            styles.card,
-            {
-                opacity: animValue,
-                transform: [
-                    {
-                        translateY: animValue.interpolate({
-                            inputRange: [0, 1],
-                            outputRange: [30, 0],
-                        }),
-                    },
-                ],
-            },
-        ]}
-    >
-        <View style={styles.diaryIconWrapper}>
-            <Text style={styles.diaryIconText}>📖</Text>
-        </View>
-        <Text style={styles.cardTitle}>View Diary</Text>
-        <TouchableOpacity style={styles.primaryButton} onPress={onPress} activeOpacity={0.85}>
-            <Text style={styles.primaryButtonText}>Open Digital Diary</Text>
-        </TouchableOpacity>
-    </Animated.View>
-);
+    const [activeTab, setActiveTab] = useState('home');
 
-// ─── Card: Manage Complaint ───────────────────────────────────────────────────
-const ComplaintCard = ({ onViewStatus, onNewReport, animValue }) => (
-    <Animated.View
-        style={[
-            styles.card,
-            {
-                opacity: animValue,
-                transform: [
-                    {
-                        translateY: animValue.interpolate({
-                            inputRange: [0, 1],
-                            outputRange: [40, 0],
-                        }),
-                    },
-                ],
-            },
-        ]}
-    >
-        <Text style={styles.cardTitle}>Manage complaint</Text>
-        <Text style={styles.cardSubtitle}>
-            Submit new feedback or track the current status of your existing inquiries.
-        </Text>
-        <View style={styles.buttonRow}>
-            <TouchableOpacity
-                style={styles.outlineButton}
-                onPress={onViewStatus}
-                activeOpacity={0.8}
-            >
-                <Text style={styles.outlineButtonText}>View Status</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-                style={styles.primaryButton}
-                onPress={onNewReport}
-                activeOpacity={0.85}
-            >
-                <Text style={styles.primaryButtonText}>New Report</Text>
-            </TouchableOpacity>
-        </View>
-    </Animated.View>
-);
+    // Parent Data
+    const parent = route?.params?.parent;
+    const pid = parent?.pid;
 
-// ─── Main Dashboard Screen ────────────────────────────────────────────────────
-const DashboardScreen = ({ navigation }) => {
-    const [activeTab, setActiveTab] = React.useState('home');
+    const pname =
+        parent?.pname ||
+        parent?.name ||
+        parent?.parentName ||
+        "User";
 
+    // Children State
+    const [children, setChildren] = useState([]);
+    const [selectedChild, setSelectedChild] = useState(null);
+    const [loadingChildren, setLoadingChildren] = useState(true);
+
+    // Animations
     const headerAnim = useRef(new Animated.Value(0)).current;
-    const diaryAnim = useRef(new Animated.Value(0)).current;
-    const complaintAnim = useRef(new Animated.Value(0)).current;
+    const cardAnim = useRef(new Animated.Value(0)).current;
 
     useEffect(() => {
+        loadChildren();
+
         Animated.stagger(120, [
-            Animated.spring(headerAnim, {
-                toValue: 1,
-                friction: 8,
-                tension: 60,
-                useNativeDriver: true,
-            }),
-            Animated.spring(diaryAnim, {
-                toValue: 1,
-                friction: 8,
-                tension: 60,
-                useNativeDriver: true,
-            }),
-            Animated.spring(complaintAnim, {
-                toValue: 1,
-                friction: 8,
-                tension: 60,
-                useNativeDriver: true,
-            }),
+            Animated.spring(headerAnim, { toValue: 1, useNativeDriver: true }),
+            Animated.spring(cardAnim, { toValue: 1, useNativeDriver: true }),
         ]).start();
+
     }, []);
 
+    // Fetch Children
+    const loadChildren = async () => {
+        try {
+            setLoadingChildren(true);
+
+            const res = await getParentChildren(pid);
+
+            // ✅ store full object inside dropdown item
+            const formatted = res.data.map(item => ({
+                label: `${item.sname} (${item.cname})`,
+                value: item.sid,
+                data: item, // full child object
+            }));
+
+            setChildren(formatted);
+
+        } catch (err) {
+            console.log(err?.response?.data || err.message);
+        } finally {
+            setLoadingChildren(false);
+        }
+    };
+
     return (
-        <SafeAreaView style={styles.safeArea}>
+        <SafeAreaView style={styles.container}>
             <StatusBar barStyle="dark-content" backgroundColor="#F2F4F8" />
 
-            {/* ── Header ── */}
-            <Animated.View
-                style={[
-                    styles.header,
-                    {
-                        opacity: headerAnim,
-                        transform: [
-                            {
-                                translateY: headerAnim.interpolate({
-                                    inputRange: [0, 1],
-                                    outputRange: [-16, 0],
-                                }),
-                            },
-                        ],
-                    },
-                ]}
-            >
+            {/* HEADER */}
+            <Animated.View style={[styles.header, { opacity: headerAnim }]}>
                 <View style={styles.headerLeft}>
-                    <View style={styles.avatarWrapper}>
-                        <Text style={styles.avatarEmoji}>🔑</Text>
+                    <View style={styles.avatar}>
+                        <Text style={{ fontSize: 20 }}>👤</Text>
                     </View>
+
                     <View>
                         <Text style={styles.headerLabel}>DASHBOARD</Text>
-                        <Text style={styles.headerName}>Welcome, Sarah</Text>
+                        <Text style={styles.headerName}>
+                            Welcome, {pname}
+                        </Text>
                     </View>
                 </View>
-                <TouchableOpacity style={styles.bellButton} activeOpacity={0.7}>
-                    <Text style={styles.bellIcon}>🔔</Text>
-                    <View style={styles.bellBadge} />
-                </TouchableOpacity>
             </Animated.View>
 
-            {/* ── Content ── */}
-            <View style={styles.scrollContent}>
-                <DiaryCard
-                    animValue={diaryAnim}
-                    onPress={() => navigation.replace('studentdairy')
-                    }
-                />
-                <ComplaintCard
-                    animValue={complaintAnim}
-                    onViewStatus={() => console.log('View Status')}
-                    onNewReport={() => console.log('New Report')}
-                />
+            {/* DROPDOWN */}
+            <View style={styles.dropdownCard}>
+                <Text style={styles.dropdownLabel}>Select Child</Text>
+
+                {loadingChildren ? (
+                    <ActivityIndicator size="small" color="#2979FF" />
+                ) : (
+                    <Dropdown
+                        style={styles.dropdown}
+                        data={children}
+                        labelField="label"
+                        valueField="value"
+                        placeholder="Choose your child"
+                        value={selectedChild?.value}
+                        onChange={item => setSelectedChild(item)} // ✅ full object saved
+                    />
+                )}
             </View>
 
-            {/* ── Bottom Tab Bar ── */}
-            <BottomTabBar activeTab={activeTab} onTabPress={setActiveTab} />
+            {/* CONTENT */}
+            <Animated.View style={[styles.content, { opacity: cardAnim }]}>
+
+                {/* VIEW DIARY CARD */}
+                <View style={styles.card}>
+                    <Text style={styles.cardTitle}>📖 View Diary</Text>
+
+                    <TouchableOpacity
+                        style={styles.primaryBtn}
+                        onPress={() => {
+                            if (!selectedChild) {
+                                alert("Please select a child first");
+                                return;
+                            }
+                            console.log("Selected Child:", selectedChild);
+                            console.log("Selected Child Data:", selectedChild.data);
+                            navigation.replace('studentdairy', {
+                                child: selectedChild.data,
+                            })
+                        }}
+                    >
+                        <Text style={styles.btnText}>
+                            Open Digital Diary
+                        </Text>
+                    </TouchableOpacity>
+                </View>
+
+                {/* COMPLAINT CARD */}
+                <View style={styles.card}>
+                    <Text style={styles.cardTitle}>⚠ Complaints</Text>
+
+                    <View style={{ flexDirection: 'row', marginTop: 10 }}>
+                        <TouchableOpacity style={styles.outlineBtn}>
+                            <Text>View Status</Text>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity style={styles.primaryBtn}>
+                            <Text style={styles.btnText}>New Report</Text>
+                        </TouchableOpacity>
+                    </View>
+                </View>
+
+            </Animated.View>
+
+            {/* BOTTOM NAV */}
+            <View style={styles.bottomNav}>
+                {TAB_ITEMS.map(tab => {
+                    const isActive = activeTab === tab.key;
+
+                    return (
+                        <TouchableOpacity
+                            key={tab.key}
+                            style={styles.tabItem}
+                            onPress={() => setActiveTab(tab.key)}
+                        >
+                            <Text style={[styles.tabIcon, isActive && styles.active]}>
+                                {tab.icon}
+                            </Text>
+                            <Text style={[styles.tabText, isActive && styles.active]}>
+                                {tab.label}
+                            </Text>
+                        </TouchableOpacity>
+                    );
+                })}
+            </View>
+
         </SafeAreaView>
     );
 };
 
-export default DashboardScreen;
+export default ParentDashboard;
 
-// ─── Styles ───────────────────────────────────────────────────────────────────
-const BLUE = '#2979FF';
-const BLUE_LIGHT = '#EBF1FF';
-const WHITE = '#FFFFFF';
-const TEXT_PRIMARY = '#111827';
-const TEXT_SECONDARY = '#6B7280';
-const BG = '#F2F4F8';
-const BORDER = '#E5E7EB';
+//////////////////// STYLES ////////////////////
 
 const styles = StyleSheet.create({
-    safeArea: {
+
+    container: {
         flex: 1,
-        backgroundColor: BG,
+        backgroundColor: '#F2F4F8',
     },
 
-    // ── Header
     header: {
+        padding: 20,
         flexDirection: 'row',
         alignItems: 'center',
-        justifyContent: 'space-between',
-        paddingHorizontal: 20,
-        paddingVertical: 14,
-        backgroundColor: BG,
     },
+
     headerLeft: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 12,
     },
-    avatarWrapper: {
-        width: 44,
-        height: 44,
-        borderRadius: 22,
+
+    avatar: {
+        width: 45,
+        height: 45,
+        borderRadius: 25,
         backgroundColor: '#FDE68A',
-        alignItems: 'center',
         justifyContent: 'center',
+        alignItems: 'center',
         marginRight: 10,
     },
-    avatarEmoji: { fontSize: 20 },
+
     headerLabel: {
         fontSize: 10,
-        fontWeight: '700',
-        letterSpacing: 1.2,
-        color: BLUE,
-        textTransform: 'uppercase',
+        color: '#2979FF',
+        fontWeight: 'bold',
     },
+
     headerName: {
         fontSize: 18,
-        fontWeight: '700',
-        color: TEXT_PRIMARY,
-        marginTop: 1,
+        fontWeight: 'bold',
     },
-    bellButton: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
-        backgroundColor: WHITE,
-        alignItems: 'center',
-        justifyContent: 'center',
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.06,
-        shadowRadius: 6,
+
+    dropdownCard: {
+        backgroundColor: '#fff',
+        marginHorizontal: 16,
+        padding: 14,
+        borderRadius: 14,
         elevation: 3,
     },
-    bellIcon: { fontSize: 18 },
-    bellBadge: {
-        position: 'absolute',
-        top: 8,
-        right: 8,
-        width: 8,
-        height: 8,
-        borderRadius: 4,
-        backgroundColor: '#EF4444',
-        borderWidth: 1.5,
-        borderColor: WHITE,
-    },
 
-    // ── Scroll content
-    scrollContent: {
-        flex: 1,
-        paddingHorizontal: 16,
-        paddingTop: 8,
-        gap: 14,
-    },
-
-    // ── Card base
-    card: {
-        backgroundColor: WHITE,
-        borderRadius: 20,
-        padding: 24,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.07,
-        shadowRadius: 12,
-        elevation: 4,
-    },
-    cardTitle: {
-        fontSize: 18,
-        fontWeight: '700',
-        color: TEXT_PRIMARY,
+    dropdownLabel: {
+        fontSize: 12,
+        color: '#6B7280',
         marginBottom: 6,
-    },
-    cardSubtitle: {
-        fontSize: 13,
-        color: TEXT_SECONDARY,
-        lineHeight: 19,
-        marginBottom: 18,
-    },
-
-    // ── Diary card specifics
-    diaryIconWrapper: {
-        width: 56,
-        height: 56,
-        borderRadius: 14,
-        backgroundColor: BLUE_LIGHT,
-        alignItems: 'center',
-        justifyContent: 'center',
-        alignSelf: 'center',
-        marginBottom: 16,
-    },
-    diaryIconText: { fontSize: 28 },
-
-    // ── Buttons
-    primaryButton: {
-        backgroundColor: BLUE,
-        borderRadius: 50,
-        paddingVertical: 14,
-        paddingHorizontal: 24,
-        alignItems: 'center',
-        justifyContent: 'center',
-        marginTop: 6,
-    },
-    primaryButtonText: {
-        color: WHITE,
-        fontWeight: '700',
-        fontSize: 15,
-        letterSpacing: 0.3,
-    },
-    outlineButton: {
-        flex: 1,
-        borderWidth: 1.5,
-        borderColor: BORDER,
-        borderRadius: 50,
-        paddingVertical: 13,
-        alignItems: 'center',
-        justifyContent: 'center',
-        marginRight: 10,
-    },
-    outlineButtonText: {
-        color: TEXT_PRIMARY,
         fontWeight: '600',
-        fontSize: 14,
-    },
-    buttonRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
     },
 
-    // ── Bottom tab bar
-    tabBar: {
-        flexDirection: 'row',
-        backgroundColor: WHITE,
-        borderTopWidth: 1,
-        borderTopColor: BORDER,
-        paddingBottom: Platform.OS === 'ios' ? 20 : 8,
-        paddingTop: 10,
-        paddingHorizontal: 8,
+    dropdown: {
+        height: 45,
+        borderWidth: 1,
+        borderColor: '#E5E7EB',
+        borderRadius: 10,
+        paddingHorizontal: 10,
     },
+
+    content: {
+        flex: 1,
+        padding: 16,
+        gap: 15,
+    },
+
+    card: {
+        backgroundColor: '#fff',
+        padding: 20,
+        borderRadius: 16,
+        elevation: 3,
+    },
+
+    cardTitle: {
+        fontSize: 16,
+        fontWeight: 'bold',
+    },
+
+    primaryBtn: {
+        backgroundColor: '#2979FF',
+        padding: 12,
+        borderRadius: 25,
+        alignItems: 'center',
+        marginTop: 10,
+        marginLeft: 5,
+    },
+
+    btnText: {
+        color: '#fff',
+        fontWeight: 'bold',
+    },
+
+    outlineBtn: {
+        borderWidth: 1,
+        borderColor: '#ccc',
+        padding: 12,
+        borderRadius: 25,
+        flex: 1,
+        alignItems: 'center',
+        marginRight: 5,
+    },
+
+    bottomNav: {
+        flexDirection: 'row',
+        backgroundColor: '#fff',
+        padding: 10,
+    },
+
     tabItem: {
         flex: 1,
         alignItems: 'center',
-        justifyContent: 'center',
-        gap: 3,
     },
+
     tabIcon: {
-        fontSize: 20,
-        color: TEXT_SECONDARY,
+        fontSize: 18,
+        color: '#888',
     },
-    tabIconActive: {
-        color: BLUE,
+
+    tabText: {
+        fontSize: 10,
+        color: '#888',
     },
-    tabLabel: {
-        fontSize: 9,
-        fontWeight: '600',
-        letterSpacing: 0.8,
-        color: TEXT_SECONDARY,
-        textTransform: 'uppercase',
-    },
-    tabLabelActive: {
-        color: BLUE,
+
+    active: {
+        color: '#2979FF',
+        fontWeight: 'bold',
     },
 });

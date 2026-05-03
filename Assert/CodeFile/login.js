@@ -36,6 +36,7 @@ const ROLES = [
 ];
 
 export default function LoginScreen({ navigation }) {
+  console.log("hello")
   const [selectedRole, setSelectedRole] = useState('teacher');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -56,31 +57,60 @@ export default function LoginScreen({ navigation }) {
     }
 
     try {
-      let response;
-
       const data = {
         emailOrName: username,
         password: password,
       };
 
+      let response;
+
       if (selectedRole === 'teacher') {
-        response = await loginTeacher(data);
-        navigation.replace('teacherdashboard');
+        try {
+          response = await loginTeacher(data);
+
+          console.log("FULL RESPONSE:", JSON.stringify(response, null, 2));
+
+          const teacherData = response?.data?.data || response?.data;
+
+          console.log("TEACHER EXTRACTED:", teacherData);
+
+          if (teacherData) {
+            navigation.replace('teacherdashboard', {
+              teacher: teacherData
+            });
+          } else {
+            alert("Teacher data not found in response");
+          }
+
+        } catch (err) {
+          console.log("Teacher login error:", err.response?.data || err.message);
+        }
       }
       else if (selectedRole === 'parent') {
-        response = await loginParent(data);
-        navigation.replace('parentdashboard');
-      }
-      else if (selectedRole === 'principal') {
-        // ⚠️ Backend missing
-        alert('Principal login not implemented yet');
-        return;
+        try {
+          const response = await loginParent(data);
+
+          // ✅ handle both API formats
+          const parentData = response?.data?.data || response?.data;
+
+          if (response.status === 200 && parentData) {
+            navigation.replace('parentdashboard', { parent: parentData });
+          } else {
+            alert('Invalid login');
+          }
+
+        } catch (error) {
+          console.log(error?.response?.data || error.message);
+          alert('Login failed');
+        }
       }
 
-      console.log('Login Success:', response.data);
+      else if (selectedRole === 'principal') {
+        alert('Principal login not implemented yet');
+      }
 
     } catch (error) {
-      console.log('Login Error:', error);
+      console.log('Login Error:', error.response?.data || error.message);
       alert('Invalid username or password');
     }
   };

@@ -1,163 +1,107 @@
-// screens/StudentDiaryScreen.js
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
     View, Text, TouchableOpacity, StyleSheet,
-    FlatList, Platform,
+    FlatList, Platform, ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { COLORS, RADIUS, SHADOW } from './theme';
+import { getStudentDiary } from '../../services/api';
 
-const HOMEWORK = [
-    { id: '1', subject: 'MATHEMATICS', subjectColor: '#2979FF', icon: 'Σ', task: 'Complete exercises 1-10 from the textbook Chapter 4. Show all steps clearly for full credit.' },
-    { id: '2', subject: 'BIOLOGY', subjectColor: '#16A34A', icon: '🔬', task: 'Draw and label a detailed diagram of a chloroplast and the Calvin cycle on an A4 sheet.' },
-    { id: '3', subject: 'ENGLISH', subjectColor: '#D97706', icon: '📝', task: 'Write a 500-word essay on the causes of the French Revolution. References must be cited.' },
-];
+export default function StudentDiaryScreen({ navigation, route }) {
 
-const TEACHER_NOTES = [
-    {
-        id: '1', subject: 'MATHEMATICS', subjectColor: '#2979FF', title: 'Behavioral Update', icon: '🎯',
-        note: 'Shehryar Ali showed great improvement in focusing during today\'s Mathematics class. He helped a peer solve a complex integration problem, demonstrating leadership skills.',
-        teacher: 'MIS ALISHA',
-    },
-    {
-        id: '2', subject: 'ENGLISH', subjectColor: '#D97706', title: 'Participation', icon: '🗣',
-        note: "Excellent contribution during the debate on literature. His analysis of Shakespearean themes was quite mature for his grade level.",
-        teacher: 'MIS ALIYA',
-    },
-];
+    const child = route?.params?.child;
 
-const subjectColors = { MATHEMATICS: '#2979FF', BIOLOGY: '#16A34A', ENGLISH: '#D97706', PHYSICS: '#7C3AED' };
+    const sid = child?.sid;
 
-export default function StudentDiaryScreen({ navigation }) {
-    const [activeTab, setActiveTab] = useState('homework');
-    const [bottomTab, setBottomTab] = useState('diary');
+    const [activeTab, setActiveTab] = useState('Homework');
+    const [loading, setLoading] = useState(true);
+    const [homework, setHomework] = useState([]);
+    const [notes, setNotes] = useState([]);
 
-    const BOTTOM_TABS = [
-        { key: 'home', label: 'Home', icon: '⌂' },
-        { key: 'diary', label: 'Diary', icon: '📓' },
-        { key: 'complaints', label: 'Complaints', icon: '⚠' },
-        { key: 'profile', label: 'Profile', icon: '👤' },
-    ];
+    const fetchDiary = async (category) => {
+        try {
+            setLoading(true);
 
-    const renderHomeworkItem = ({ item }) => (
+            if (!sid) return;
+
+            const res = await getStudentDiary(sid, category);
+            const data = res?.data || [];
+
+            if (category === 'Homework') {
+                setHomework(data);
+            } else {
+                setNotes(data);
+            }
+
+            if (data.length === 0) {
+                alert(`No ${category} today`);
+            }
+
+        } catch (err) {
+            console.log(err?.response?.data || err.message);
+            alert("API Error");
+        } finally {
+            setLoading(false);
+        }
+    };
+    useEffect(() => {
+        fetchDiary(activeTab);
+    }, [activeTab]);
+
+    const renderItem = ({ item }) => (
         <View style={styles.hwCard}>
-            <View style={styles.hwCardHeader}>
-                <View style={[styles.subjectBadge, { borderColor: subjectColors[item.subject] || COLORS.blue }]}>
-                    <Text style={[styles.subjectText, { color: subjectColors[item.subject] || COLORS.blue }]}>{item.subject}</Text>
-                </View>
-                <Text style={{ fontSize: 20 }}>{item.icon}</Text>
-            </View>
-            <Text style={styles.hwTask}>{item.task}</Text>
+            <Text style={styles.studentNameSmall}>{item.sname}</Text>
+            <Text style={styles.hwTask}>{item.description}</Text>
         </View>
     );
 
-    const renderNoteItem = ({ item }) => (
-        <TouchableOpacity
-            style={styles.noteCard}
-            onPress={() => navigation?.navigate('TeacherNote', { note: item })}
-            activeOpacity={0.9}
-        >
-            <View style={styles.hwCardHeader}>
-                <View style={[styles.subjectBadge, { borderColor: subjectColors[item.subject] || COLORS.blue }]}>
-                    <Text style={[styles.subjectText, { color: subjectColors[item.subject] || COLORS.blue }]}>{item.subject}</Text>
-                </View>
-                <Text style={{ fontSize: 18 }}>{item.icon}</Text>
-            </View>
-            <Text style={styles.noteTitle}>{item.title}</Text>
-            <Text style={styles.noteText}>{item.note}</Text>
-            <View style={styles.noteTeacherRow}>
-                <Text style={{ fontSize: 14, marginRight: 6 }}>👤</Text>
-                <View>
-                    <Text style={styles.noteTeacherLabel}>TEACHER</Text>
-                    <Text style={styles.noteTeacherName}>{item.teacher}</Text>
-                </View>
-            </View>
-        </TouchableOpacity>
-    );
+    if (loading) {
+        return (
+            <SafeAreaView style={styles.safe}>
+                <ActivityIndicator size="large" color={COLORS.blue} />
+            </SafeAreaView>
+        );
+    }
 
-    const renderListHeader = () => (
-        <>
-            <View style={styles.studentRow}>
-                <View style={styles.studentAvatar}>
-                    <Text style={{ fontSize: 22 }}>👨‍💼</Text>
-                </View>
-                <View>
-                    <Text style={styles.studentName}>Shehryar Ali</Text>
-                    <Text style={styles.studentMeta}>Class 10-B • Roll No: 24</Text>
-                </View>
+    return (
+        <SafeAreaView style={styles.safe}>
+
+            <View style={styles.header}>
+                <TouchableOpacity onPress={() => navigation.goBack()}>
+                    <Text style={{ fontSize: 22 }}>←</Text>
+                </TouchableOpacity>
+
+                <Text style={styles.headerTitle}>Student Diary</Text>
+
+                <Text>🔍</Text>
             </View>
 
             <View style={styles.tabRow}>
-                {[
-                    { key: 'homework', label: '📖 Homework' },
-                    { key: 'teacher', label: '📋 Teacher Note' },
-                ].map((t) => (
+                {['Homework', 'Note'].map((t) => (
                     <TouchableOpacity
-                        key={t.key}
-                        style={[styles.tabBtn, activeTab === t.key && styles.tabBtnActive]}
-                        onPress={() => setActiveTab(t.key)}
-                        activeOpacity={0.8}
+                        key={t}
+                        style={[styles.tabBtn, activeTab === t && styles.tabBtnActive]}
+                        onPress={() => setActiveTab(t)}
                     >
-                        <Text style={[styles.tabBtnText, activeTab === t.key && styles.tabBtnTextActive]}>{t.label}</Text>
+                        <Text style={[styles.tabBtnText, activeTab === t && styles.tabBtnTextActive]}>
+                            {t}
+                        </Text>
                     </TouchableOpacity>
                 ))}
             </View>
 
-            <View style={styles.dateDivider}>
-                <View style={styles.dateLine} />
-                <Text style={styles.dateLabel}>TODAY, 24 OCT</Text>
-                <View style={styles.dateLine} />
-            </View>
-        </>
-    );
+            <FlatList
+                data={activeTab === 'Homework' ? homework : notes}
+                keyExtractor={(item, index) => index.toString()}
+                renderItem={renderItem}
+                contentContainerStyle={{ padding: 16 }}
+                ItemSeparatorComponent={() => <View style={{ height: 12 }} />}
+            />
 
-    return (
-        <SafeAreaView style={styles.safe}>
-            {/* Header */}
-            <View style={styles.header}>
-                <TouchableOpacity onPress={() => navigation?.goBack()} style={styles.backBtn}>
-                    <Text style={styles.backArrow}>←</Text>
-                </TouchableOpacity>
-                <Text style={styles.headerTitle}>Student Diary</Text>
-                <TouchableOpacity><Text style={{ fontSize: 20 }}>🔍</Text></TouchableOpacity>
-            </View>
-
-            {/* List Wrapper */}
-            <View style={styles.listWrapper}>
-                <FlatList
-                    data={activeTab === 'homework' ? HOMEWORK : TEACHER_NOTES}
-                    keyExtractor={(item) => item.id}
-                    renderItem={activeTab === 'homework' ? renderHomeworkItem : renderNoteItem}
-                    ListHeaderComponent={renderListHeader}
-                    contentContainerStyle={styles.listContent}
-                    showsVerticalScrollIndicator={false}
-                    ItemSeparatorComponent={() => <View style={{ height: 12 }} />}
-                    ListFooterComponent={() => <View style={{ height: 24 }} />}
-                />
-            </View>
-
-            {/* Bottom Tabs */}
-            <View style={styles.bottomTabBar}>
-                {BOTTOM_TABS.map((tab) => {
-                    const active = bottomTab === tab.key;
-                    return (
-                        <TouchableOpacity
-                            key={tab.key}
-                            style={styles.bottomTabItem}
-                            onPress={() => setBottomTab(tab.key)}
-                            activeOpacity={0.7}
-                        >
-                            <Text style={[styles.bottomTabIcon, active && styles.bottomTabIconActive]}>{tab.icon}</Text>
-                            <Text style={[styles.bottomTabLabel, active && styles.bottomTabLabelActive]}>{tab.label}</Text>
-                        </TouchableOpacity>
-                    );
-                })}
-            </View>
         </SafeAreaView>
     );
 }
-
 const styles = StyleSheet.create({
     safe: {
         flex: 1,

@@ -33,15 +33,15 @@ const ACTIONS = [
     },
 ];
 
-export default function TeacherPanelScreen({ navigation }) {
+export default function TeacherPanelScreen({ navigation, route }) {
+    const { teacher } = route.params;
     const [activeTab, setActiveTab] = useState('diary');
 
     const handleAction = (id) => {
         if (id === 'add') {
-            navigation.replace('addnewdairy')
-
+            navigation.navigate('addnewdairy', { teacher })
         } else {
-            navigation.replace('teacherdashboard')
+            navigation.replace('teacherdiaryview', { teacher })
         }
     };
 
@@ -60,7 +60,7 @@ export default function TeacherPanelScreen({ navigation }) {
                     onPress={() => navigation?.goBack()}
                 >
                     <Text style={styles.backIcon}>‹</Text>
-                    <Text style={styles.backText}>Subject Teacher Panel</Text>
+                    <Text style={styles.backText}> Teacher Panel</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity>
@@ -73,7 +73,7 @@ export default function TeacherPanelScreen({ navigation }) {
 
             {/* ── Welcome ── */}
             <View style={styles.welcomeSection}>
-                <Text style={styles.welcomeTitle}>Welcome Back,</Text>
+                <Text style={styles.welcomeTitle}> Welcome {teacher?.tname}</Text>
                 <Text style={styles.welcomeSub}>
                     Manage your classroom activities
                 </Text>

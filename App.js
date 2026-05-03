@@ -11,6 +11,7 @@ import studentdairy from "./Assert/CodeFile/Parent/StudentDiary"
 import principaldashboard from "./Assert/CodeFile/Principal/DashBoard";
 import teacherdashboard from "./Assert/CodeFile/Teacher/TeacherPannel";
 import addnewdairy from "./Assert/CodeFile/Teacher/AddNewDairy"
+import teacherdiaryview from "./Assert/CodeFile/Teacher/TeacherDairyVIew"
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
@@ -55,6 +56,12 @@ export default function LoginNavigation() {
             headerShown: false,
           }}
           name="studentdairy" component={studentdairy} />
+
+        <Stack.Screen
+          options={{
+            headerShown: false,
+          }}
+          name="teacherdiaryview" component={teacherdiaryview} />
       </Stack.Navigator>
     </NavigationContainer>
   );

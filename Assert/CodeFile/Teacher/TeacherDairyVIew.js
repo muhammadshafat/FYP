@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -6,114 +6,102 @@ import {
   TouchableOpacity,
   FlatList,
   SafeAreaView,
+  ActivityIndicator,
 } from 'react-native';
 
-// ── Data ─────────────────────────────────────────
-const DIARIES = [
-  {
-    id: 1,
-    grade: "GRADE 6-A",
-    subject: "MATHEMATICS",
-    time: "08:45 AM",
-    description: "Chapter 4.Ex#4.3(Q#1 to Q#5) test",
-  },
-  {
-    id: 2,
-    grade: "GRADE 6-A",
-    subject: "SCIENCE",
-    time: "11:15 AM",
-    description: "Chapter 4 for test",
-  },
-  {
-    id: 3,
-    grade: "GRADE 6-C",
-    subject: "ENGLISH",
-    time: "Yesterday",
-    description: "Chapter 3 full Ex.. for test",
-  },
-];
+import { getTeacherDiaries } from '../../services/api';
 
-const CLASSES = ["Grade 6-A", "Grade 6-B", "Grade 6-C", "Grade 7-A"];
-const SUBJECTS = ["Mathematics", "Science", "English", "Urdu", "Islamiyat"];
+const TeacherDiaryView = ({ navigation, route }) => {
 
-// ── Component ───────────────────────────────────
-const ViewDiaries = () => {
-  const [selectedClass, setSelectedClass] = useState("Grade 6-A");
-  const [selectedSubject, setSelectedSubject] = useState("Mathematics");
-  const [activeTab, setActiveTab] = useState("Diaries");
+  // ✅ RECEIVE FROM REPLACE
+  const { teacher } = route.params;
 
-  // ── Render Diary Card ──
+  const tid = teacher?.tid;
+  const tname = teacher?.tname;
+
+  const [diaries, setDiaries] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState('Diaries');
+
+  // ─── LOAD DATA FROM BACKEND ─────────────────
+  useEffect(() => {
+    fetchDiaries();
+  }, []);
+
+  const fetchDiaries = async () => {
+    try {
+      setLoading(true);
+
+      const res = await getTeacherDiaries(tid); // ✅ send tid
+      setDiaries(res.data);
+
+    } catch (err) {
+      console.log(err?.response?.data || err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ─── CARD UI ───────────────────────────────
   const renderDiary = ({ item }) => (
     <View style={styles.card}>
       <View style={styles.accent} />
 
       <View style={styles.cardBody}>
+
+        {/* TOP */}
         <View style={styles.rowBetween}>
           <View style={styles.tagRow}>
-            <Text style={styles.tagBlue}>{item.grade}</Text>
-            <Text style={styles.tagGrey}>{item.subject}</Text>
+            <Text style={styles.tagBlue}>{item.cname}</Text>
+            <Text style={styles.tagGrey}>{item.sname}</Text>
           </View>
-          <Text style={styles.time}>{item.time}</Text>
+
+          <Text style={styles.time}>
+            {new Date(item.ddate).toLocaleTimeString([], {
+              hour: '2-digit',
+              minute: '2-digit',
+            })}
+          </Text>
         </View>
 
+        {/* DESCRIPTION */}
         <Text style={styles.desc}>{item.description}</Text>
 
-        <View style={styles.btnRow}>
-          <TouchableOpacity style={styles.primaryBtn}>
-            <Text style={styles.primaryText}>View Details</Text>
-          </TouchableOpacity>
+        {/* CATEGORY */}
+        <Text style={styles.category}>{item.category}</Text>
 
-          <TouchableOpacity style={styles.outlineBtn}>
-            <Text style={styles.outlineText}>Update Homework</Text>
-          </TouchableOpacity>
-        </View>
       </View>
     </View>
   );
 
-  // ── UI ──
   return (
     <SafeAreaView style={styles.container}>
 
-      {/* Header */}
+      {/* HEADER */}
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>View Diaries</Text>
+        <Text style={styles.headerTitle}>
+          📖 {tname}'s Diaries
+        </Text>
       </View>
 
-      {/* Content */}
+      {/* CONTENT */}
       <View style={styles.content}>
 
-        {/* Today Button */}
-        <TouchableOpacity style={styles.todayBtn}>
-          <Text style={styles.todayText}>Today</Text>
-        </TouchableOpacity>
+        <Text style={styles.sectionTitle}>ALL DIARIES</Text>
 
-        {/* Selectors */}
-        <View style={styles.selectorCard}>
-          <View style={styles.selector}>
-            <Text style={styles.label}>SELECT CLASS</Text>
-            <Text style={styles.value}>{selectedClass}</Text>
-          </View>
+        {loading ? (
+          <ActivityIndicator size="large" color="#1976D2" />
+        ) : (
+          <FlatList
+            data={diaries}
+            keyExtractor={(item) => item.did.toString()}
+            renderItem={renderDiary}
+          />
+        )}
 
-          <View style={styles.divider} />
-
-          <View style={styles.selector}>
-            <Text style={styles.label}>SELECT SUBJECT</Text>
-            <Text style={styles.value}>{selectedSubject}</Text>
-          </View>
-        </View>
-
-        {/* List */}
-        <Text style={styles.sectionTitle}>RECENT DIARIES</Text>
-
-        <FlatList
-          data={DIARIES}
-          keyExtractor={(item) => item.id.toString()}
-          renderItem={renderDiary}
-        />
       </View>
 
-      {/* Bottom Nav */}
+      {/* BOTTOM NAV */}
       <View style={styles.bottomNav}>
         {["Home", "Diaries", "Students", "Profile"].map((tab) => (
           <TouchableOpacity key={tab} onPress={() => setActiveTab(tab)}>
@@ -128,8 +116,7 @@ const ViewDiaries = () => {
   );
 };
 
-export default ViewDiaries;
-
+export default TeacherDiaryView;
 // ── Styles ──────────────────────────────────────
 const styles = StyleSheet.create({
   container: {
